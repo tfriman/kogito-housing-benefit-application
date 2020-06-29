@@ -1,19 +1,22 @@
 package demosoft.rules;
 
-import java.util.Date;
+
+import java.time.LocalDate;
 
 public class MaximumHousingCostRequest {
-    public int kalleusRyhma = 1;
-    public int ruokakunnanKoko = 0;
-    public Date alkuPvm;
+    private String county;
+    private int kalleusRyhma = 1;
+    private int ruokakunnanKoko = 0;
+    private LocalDate alkuPvm;
 
     public MaximumHousingCostRequest() {
     }
 
-    public MaximumHousingCostRequest(int kalleusRyhma, int ruokakunnanKoko, Date alkuPvm) {
+    public MaximumHousingCostRequest(int kalleusRyhma, int ruokakunnanKoko, String county, LocalDate alkuPvm) {
         this.kalleusRyhma = kalleusRyhma;
         this.ruokakunnanKoko = ruokakunnanKoko;
         this.alkuPvm = alkuPvm;
+        this.county = county;
     }
 
     public int getKalleusRyhma() {
@@ -32,18 +35,27 @@ public class MaximumHousingCostRequest {
         this.ruokakunnanKoko = ruokakunnanKoko;
     }
 
-    public Date getAlkuPvm() {
+    public LocalDate getAlkuPvm() {
         return alkuPvm;
     }
 
-    public void setAlkuPvm(Date alkuPvm) {
+    public void setAlkuPvm(LocalDate alkuPvm) {
         this.alkuPvm = alkuPvm;
+    }
+
+    public String getCounty() {
+        return county;
+    }
+
+    public void setCounty(String county) {
+        this.county = county;
     }
 
     @Override
     public String toString() {
-        return "MaksimiAsuinkulut{" +
-                "kalleusRyhma=" + kalleusRyhma +
+        return "MaximumHousingCostRequest{" +
+                "county='" + county + '\'' +
+                ", kalleusRyhma=" + kalleusRyhma +
                 ", ruokakunnanKoko=" + ruokakunnanKoko +
                 ", alkuPvm=" + alkuPvm +
                 '}';

@@ -1,23 +1,20 @@
 package demosoft.rules;
 
-import java.math.BigDecimal;
-
 public class MaximumWaterPrice {
-    private BigDecimal maximum;
+    private Double maximum;
 
-    public MaximumWaterPrice(BigDecimal maximum) {
+    public MaximumWaterPrice(Integer in) {
+        this.maximum = Double.valueOf(in);
+    }
+    public MaximumWaterPrice(Double maximum) {
         this.maximum = maximum;
     }
 
-    public MaximumWaterPrice(double d) {
-        this.maximum = BigDecimal.valueOf(d);
-    }
-
-    public BigDecimal getMaximum() {
+    public Double getMaximum() {
         return maximum;
     }
 
-    public void setMaximum(BigDecimal maximum) {
+    public void setMaximum(Double maximum) {
         this.maximum = maximum;
     }
 

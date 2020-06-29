@@ -1,22 +1,22 @@
 package demosoft.rules;
 
-import java.util.Date;
+import java.time.LocalDate;
 
 public class MaximumWaterPriceRequest {
-    public Date alkuPvm;
+    public LocalDate alkuPvm;
 
     public MaximumWaterPriceRequest() {
     }
 
-    public MaximumWaterPriceRequest(Date alkuPvm) {
+    public MaximumWaterPriceRequest(LocalDate alkuPvm) {
         this.alkuPvm = alkuPvm;
     }
 
-    public Date getAlkuPvm() {
+    public LocalDate getAlkuPvm() {
         return alkuPvm;
     }
 
-    public void setAlkuPvm(Date alkuPvm) {
+    public void setAlkuPvm(LocalDate alkuPvm) {
         this.alkuPvm = alkuPvm;
     }
 

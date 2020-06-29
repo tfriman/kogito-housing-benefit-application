@@ -2,7 +2,7 @@ package demosoft.domain;
 
 public class RuokakunnanJasen extends Henkilo {
 	private boolean lisatilanTarve = false;
-	
+
 	public boolean isLisatilanTarve() {
 		return lisatilanTarve;
 	}

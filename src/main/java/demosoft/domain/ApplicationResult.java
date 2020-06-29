@@ -1,95 +1,90 @@
 package demosoft.domain;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.math.BigDecimal;
-
 public class ApplicationResult {
 
-    BigDecimal enimmaisAsumisMenotEur = BigDecimal.ZERO;
-    BigDecimal hoitoMenoMuu = BigDecimal.ZERO;
-    BigDecimal rahoitusMeno = BigDecimal.ZERO;
-    BigDecimal vuokraMeno = BigDecimal.ZERO;
-    BigDecimal vastikeMeno = BigDecimal.ZERO;
-    BigDecimal vesiMeno = BigDecimal.ZERO;
-    BigDecimal lammitysMeno = BigDecimal.ZERO;
+    Double enimmaisAsumisMenotEur = 0d;
+    Double hoitoMenoMuu = 0d;
+    Double rahoitusMeno = 0d;
+    Double vuokraMeno = 0d;
+    Double vastikeMeno = 0d;
+    Double vesiMeno = 0d;
+    Double lammitysMeno = 0d;
+    Double alivuokraTulo = 0d;
 
-    public BigDecimal getAlivuokraTulo() {
+    public Double getAlivuokraTulo() {
         return alivuokraTulo;
     }
 
-    public void setAlivuokraTulo(BigDecimal alivuokraTulo) {
+    public void setAlivuokraTulo(Double alivuokraTulo) {
         this.alivuokraTulo = alivuokraTulo;
     }
 
-    BigDecimal alivuokraTulo = BigDecimal.ZERO;
-
-    public BigDecimal getHyvaksytytAsumismenotEur() {
+    public Double getHyvaksytytAsumismenotEur() {
         // todo this should be in rule as well
-        return hoitoMenoMuu
-                .add(rahoitusMeno)
-                .add(vuokraMeno)
-                .add(vastikeMeno)
-                .add(vesiMeno)
-                .add(lammitysMeno)
-                .subtract(alivuokraTulo)
-                .min(enimmaisAsumisMenotEur);
+
+        Double meno = hoitoMenoMuu
+                + rahoitusMeno
+                + vuokraMeno
+                + vastikeMeno
+                + vesiMeno
+                + lammitysMeno
+                - alivuokraTulo;
+        return java.lang.Math.min(meno, enimmaisAsumisMenotEur);
     }
 
-    public BigDecimal getEnimmaisAsumisMenotEur() {
+    public Double getEnimmaisAsumisMenotEur() {
         return enimmaisAsumisMenotEur;
     }
 
-    public void setEnimmaisAsumisMenotEur(BigDecimal enimmaisAsumisMenotEur) {
+    public void setEnimmaisAsumisMenotEur(Double enimmaisAsumisMenotEur) {
         this.enimmaisAsumisMenotEur = enimmaisAsumisMenotEur;
     }
 
-    public BigDecimal getHoitoMenoMuu() {
+    public Double getHoitoMenoMuu() {
         return hoitoMenoMuu;
     }
 
-    public void setHoitoMenoMuu(BigDecimal hoitoMenoMuu) {
+    public void setHoitoMenoMuu(Double hoitoMenoMuu) {
         this.hoitoMenoMuu = hoitoMenoMuu;
     }
 
-    public BigDecimal getRahoitusMeno() {
+    public Double getRahoitusMeno() {
         return rahoitusMeno;
     }
 
-    public void setRahoitusMeno(BigDecimal rahoitusMeno) {
+    public void setRahoitusMeno(Double rahoitusMeno) {
         this.rahoitusMeno = rahoitusMeno;
     }
 
-    public BigDecimal getVuokraMeno() {
+    public Double getVuokraMeno() {
         return vuokraMeno;
     }
 
-    public void setVuokraMeno(BigDecimal vuokraMeno) {
+    public void setVuokraMeno(Double vuokraMeno) {
         this.vuokraMeno = vuokraMeno;
     }
 
-    public BigDecimal getVastikeMeno() {
+    public Double getVastikeMeno() {
         return vastikeMeno;
     }
 
-    public void setVastikeMeno(BigDecimal vastikeMeno) {
+    public void setVastikeMeno(Double vastikeMeno) {
         this.vastikeMeno = vastikeMeno;
     }
 
-    public BigDecimal getVesiMeno() {
+    public Double getVesiMeno() {
         return vesiMeno;
     }
 
-    public void setVesiMeno(BigDecimal vesiMeno) {
+    public void setVesiMeno(Double vesiMeno) {
         this.vesiMeno = vesiMeno;
     }
 
-    public BigDecimal getLammitysMeno() {
+    public Double getLammitysMeno() {
         return lammitysMeno;
     }
 
-    public void setLammitysMeno(BigDecimal lammitysMeno) {
+    public void setLammitysMeno(Double lammitysMeno) {
         this.lammitysMeno = lammitysMeno;
     }
 

@@ -3,161 +3,365 @@ dialect  "java"
 
 import demosoft.domain.*
 import demosoft.domain.decision.DecisionElement
-import java.math.BigDecimal
 
-declare Lisatilantarve
-  onko: boolean
+function void debug(String message) {
+    System.out.println("demo message = " + message);
+}
+
+declare ExtraSpace
+  needed: boolean
 end
 
-declare VesiMaksu
-    totalCost: java.math.BigDecimal
-    perHlo: java.math.BigDecimal
+declare WaterCost
+    totalCost: Double
+    perHlo: Double
 end
 
-declare LammitysMaksu
-    totalCost: java.math.BigDecimal
-    perHlo: java.math.BigDecimal
+declare HeatingCost
+    totalCost: Double
 end
 
 declare AsuntoMarker
     finished: boolean
 end
 
-declare VuokraMarker extends AsuntoMarker
-   alivuokra: boolean
-   vuokra: boolean
+declare RentMarker extends AsuntoMarker
+   subRentHandled: boolean
+   rentHandled: boolean
 end
 
-function void debug(String message) {
-    System.out.println("message = " + message);
-}
+declare OtherOwnedMarker extends OwnedMarker
+    otherCostsHandled: boolean
+end
+
+// Examples: etelä-savo, kainuu, uusimaa
+declare Region
+    name: String
+end
+
+declare CostCorrectionRequest
+    active: boolean
+    multiplier: Double
+end
+
+declare OwnedMarker extends AsuntoMarker
+    interestHandled: boolean
+    maintenanceCostsHandled: boolean // todo remove me
+end
+
+declare FinancingCost
+    amount: Double
+end
 
 rule "Start"
     when
-        $dec: BenefitApplication(ruokakunnanKoko > 0, $alkuPvm : alkuPvm)
-        not VesiMaksu()
-        not LammitysMaksu()
+        $ben: BenefitApplication(ruokakunnanKoko > 0, $alkuPvm : alkuPvm)
+        not ApplicationResult()
     then
-        debug(drools.getRule().getName() + " fired");
-        debug($dec.toString());
-        insert(new VesiMaksu());
-        insert(new LammitysMaksu());
+        debug(drools.getRule().getName());
+        debug($ben.toString());
+        insert(new HeatingCost($ben.getAsuntoTiedot().getLammitysKustannuksetEur()));
         insert(new MaximumWaterPriceRequest($alkuPvm));
-        insert(new ApplicationResult());
-        update($dec);
+        ApplicationResult applicationResult = new ApplicationResult();
+        $ben.setResult(applicationResult);
+        insert(applicationResult);
+        insert(new Region($ben.getAsuinMaakunta()));
+        update($ben);
 end
 
-rule "Vesimaksun laskenta"
-    no-loop true
+rule "Add owned flat maintenance costs"
     when
-        $dec: BenefitApplication($koko: ruokakunnanKoko > 0, $asuntoTiedot: asuntoTiedot)
-        $maksut: VesiMaksu()
-        $maxWater: MaximumWaterPrice()
+        $marker: OwnedMarker(!maintenanceCostsHandled)
+        AsuntoTiedot($vastike: vastikeEur)
+        MaximumHousingCost($maxHousingCost: cost)
     then
-        debug("max water price:" + $maxWater);
-        // todo ota suoraan asuntotiedot?
-        BigDecimal perHenki = $maxWater.getMaximum().min($asuntoTiedot.getVesiPerHenkiloEur());
-        $maksut.setTotalCost(perHenki.multiply(new BigDecimal($koko)));
-        $maksut.setPerHlo(perHenki);
-        update($maksut);
+        debug(drools.getRule().getName());
+        insert(new DecisionElement("costs.owned.maintenance", $vastike));
+        Double maxAcceptable = $maxHousingCost * 0.3d;
+        Double accepted = java.lang.Math.min($vastike, maxAcceptable);
+        Double surplus = $vastike - accepted;
+        insert(new MaintenanceCostAccepted(accepted));
+        insert(new MaintenanceCostSurplus(surplus));
 end
 
-rule "Lisaa vesimaksut"
+rule "Handle owned flat costs with surplus"
     when
-        $maksut: VesiMaksu(totalCost != null)
+        MaintenanceCostAccepted($acceptedMaintenance: amount)
+        MaintenanceCostSurplus(active, $surplusMaintenance: amount)
+        WaterCost($waterTotal: totalCost)
+        FinancingCost($finCost: amount)
+        $result: ApplicationResult()
+        MaximumHousingCost($maxHousingCost: cost)
+    then
+        debug(drools.getRule().getName());
+        $result.setVastikeMeno($acceptedMaintenance - $waterTotal);
+        insert(new DecisionElement("costs.owned.maintenance.limited", 30, $maxHousingCost, $acceptedMaintenance));
+        Double extra = ($surplusMaintenance + $waterTotal)*0.73d;
+        Double total = $finCost + extra;
+        $result.setRahoitusMeno(total);
+        insert(new DecisionElement("costs.owned.interestpayments.limited", $finCost)); // todo check me
+        insert(new DecisionElement("costs.owned.overflow.limited", $finCost)); // todo check me
+end
+
+rule "Handle owned flat costs without surplus"
+    when
+        MaintenanceCostAccepted($acceptedMaintenance: amount)
+        MaintenanceCostSurplus(!active)
+        WaterCost($waterTotal: totalCost)
+        FinancingCost($finCost: amount)
         $result: ApplicationResult()
     then
         debug(drools.getRule().getName());
-        insert(new DecisionElement("vesimaksut", $maksut.getPerHlo(), $maksut.getTotalCost()));
+        $result.setVastikeMeno($acceptedMaintenance);
+        $result.setRahoitusMeno($finCost);
+        insert(new DecisionElement("costs.owned.interestpayments", $finCost));
+end
+
+rule "Handle interest rate costs"
+    when
+        $marker: OwnedMarker(!interestHandled)
+        $asunto: AsuntoTiedot()
+        $result: ApplicationResult()
+        not FinancingCost()
+    then
+        debug(drools.getRule().getName());
+        $marker.setInterestHandled(true);
+        Double finCost = $asunto.getRahoitusMenotEur()*0.73d;
+
+        insert(new FinancingCost(finCost));
+        insert(new DecisionElement("costs.owned.interestpayments", finCost, "73", $asunto.getRahoitusMenotEur()));
+end
+
+rule "Region check - no specific handling"
+    salience -5
+    when
+        $reg: Region()
+        not CostCorrectionRequest()
+    then
+        debug("Region found:" + $reg);
+        insert(new CostCorrectionRequest(false, 1.0));
+end
+
+rule "Region check - eastern regions"
+    // Edellä 1 ja 2 momentissa mainittuja lämmityskustannuksia sekä 3 ja 4 momentissa mainittuja hoitomenoja korotetaan neljä prosenttia
+    // Etelä-Savon, Pohjois-Savon ja Pohjois-Karjalan maakunnissa ja kahdeksan prosenttia Pohjois-Pohjanmaan, Kainuun ja Lapin maakunnissa.
+    when
+        $reg: Region(name in ("ETELÄ-SAVO", "POHJOIS-SAVO", "POHJOIS-KARJALA"))
+    then
+        debug("Eastern region found:" + $reg);
+        insert(new CostCorrectionRequest(true, 1.04));
+end
+
+rule "Region check - northern regions"
+    // Edellä 1 ja 2 momentissa mainittuja lämmityskustannuksia sekä 3 ja 4 momentissa mainittuja hoitomenoja korotetaan neljä prosenttia
+    // Etelä-Savon, Pohjois-Savon ja Pohjois-Karjalan maakunnissa ja kahdeksan prosenttia Pohjois-Pohjanmaan, Kainuun ja Lapin maakunnissa.
+    when
+        $reg: Region(name in ("LAPPI", "KAINUU", "POHJOIS-POHJANMAA"))
+    then
+        debug("Northern region found:" + $reg);
+        insert(new CostCorrectionRequest(true, 1.08));
+end
+
+rule "Heating cost calculation, no increase"
+    no-loop true
+    when
+        $dec: BenefitApplication($koko: ruokakunnanKoko > 0, $asuntoTiedot: asuntoTiedot)
+        $maksut: HeatingCost()
+        CostCorrectionRequest(active == false)
+    then
+        debug("Adding heating cost, no increase.");
+        Double totalCost = $dec.getAsuntoTiedot().getLammitysKustannuksetEur();
+        $maksut.setTotalCost(totalCost);
+end
+
+rule "Heating cost calculation with increase"
+    no-loop true
+    when
+        $dec: BenefitApplication($koko: ruokakunnanKoko > 0, $asuntoTiedot: asuntoTiedot)
+        $maksut: HeatingCost()
+        $increase: CostCorrectionRequest(active == true)
+    then
+        debug("Adding heating cost with increase:" + $increase.getMultiplier());
+        Double orig = $dec.getAsuntoTiedot().getLammitysKustannuksetEur();
+        Double totalCost = orig * $increase.getMultiplier();
+        insert(new DecisionElement("increased_housing", $increase.getMultiplier(), $dec.getAsuinMaakunta()));
+        $maksut.setTotalCost(totalCost);
+end
+
+rule "Add heating cost"
+    when
+        $maksut: HeatingCost(totalCost > 0)
+        $result: ApplicationResult()
+    then
+        debug(drools.getRule().getName() + " - cost:" + $maksut);
+        insert(new DecisionElement("costs.heating", $maksut.getTotalCost()));
+        $result.setLammitysMeno($maksut.getTotalCost());
+        delete($maksut);
+end
+
+rule "Calculate water costs"
+    no-loop true
+    when
+        $dec: BenefitApplication($koko: ruokakunnanKoko > 0, $asuntoTiedot: asuntoTiedot)
+        $maxWater: MaximumWaterPrice()
+    then
+        debug(drools.getRule().getName() + " max water price:" + $maxWater);
+        Double perHenki = java.lang.Math.min($maxWater.getMaximum(), $asuntoTiedot.getVesiPerHenkiloEur());
+        WaterCost waterCost = new WaterCost();
+        waterCost.setTotalCost(perHenki * $koko);
+        waterCost.setPerHlo(perHenki);
+        insert(waterCost);
+end
+
+rule "Add water costs"
+    when
+        $maksut: WaterCost(totalCost != null)
+        $result: ApplicationResult()
+    then
+        debug(drools.getRule().getName());
+        insert(new DecisionElement("costs.water", $maksut.getPerHlo(), $maksut.getTotalCost()));
         $result.setVesiMeno($maksut.getTotalCost());
         delete($maksut);
 end
 
-rule "Laske ruokakunnan koko"
+rule "Get household member count"
     when
-       not Lisatilantarve()
+       not ExtraSpace()
        $ben: BenefitApplication(ruokakunnanKoko == 0)
-       $lisatilaisia: Number() from accumulate ( RuokakunnanJasen(lisatilanTarve) from $ben.ruokakunnanJasenet, count())
+       $extraSpaceNeeds: Number() from accumulate ( RuokakunnanJasen(lisatilanTarve) from $ben.ruokakunnanJasenet, count())
     then
-        debug("Montako lisatilantarpeista:" + $lisatilaisia);
-        insert(new Lisatilantarve($lisatilaisia > 0));
+        debug(drools.getRule().getName() + " extra space needs:" + $extraSpaceNeeds);
+        insert(new ExtraSpace($extraSpaceNeeds > 0));
 end
 
-rule "Laske ruokakunnan koko, on lisatilan tarve"
+rule "Calculate household member amount, extra spaced needed"
     when
        $ben: BenefitApplication(ruokakunnanKoko == 0)
-       Lisatilantarve(onko)
+       ExtraSpace(needed)
     then
-        debug("on lisatilan tarve!");
+        debug(drools.getRule().getName());
         $ben.setRuokakunnanKoko($ben.getRuokakunnanJasenet().size() + 1);
         update($ben);
-        insert(new DecisionElement("lisatila", $ben.getRuokakunnanJasenet().size() + 1));
-        insert(new DecisionElement("ruokakunnan.laskennallinen.koko", $ben.getRuokakunnanKoko()));
-        insert(new MaximumHousingCostRequest($ben.getKuntaRyhma(), $ben.getRuokakunnanKoko(), $ben.getAlkuPvm()));
+        insert(new DecisionElement("need.extra.space", $ben.getRuokakunnanJasenet().size() + 1));
+        insert(new DecisionElement("household.calculated.size", $ben.getRuokakunnanKoko(), $ben.getJasenetAsString()));
+        String asuinKunta = $ben.getAsuntoTiedot().getAsuinKunta();
+        insert(new MaximumHousingCostRequest($ben.getKuntaRyhma(), $ben.getRuokakunnanKoko(), asuinKunta, $ben.getAlkuPvm()));
 end
 
-rule "Laske ruokakunnan koko, ei lisatilantarvetta"
+rule "Calculate household member amount, no extra spaced needed"
     when
        $ben: BenefitApplication(ruokakunnanKoko == 0)
-       Lisatilantarve(onko == false)
+       ExtraSpace(!needed)
     then
-        debug("ei ole lisatilan tarvetta");
+        debug(drools.getRule().getName());
         $ben.setRuokakunnanKoko($ben.getRuokakunnanJasenet().size());
         update($ben);
-        insert(new DecisionElement("ruokakunnan.laskennallinen.koko", $ben.getRuokakunnanKoko()));
-        insert(new MaximumHousingCostRequest($ben.getKuntaRyhma(), $ben.getRuokakunnanKoko(), $ben.getAlkuPvm()));
+        insert(new DecisionElement("household.calculated.size", $ben.getRuokakunnanKoko(), $ben.getJasenetAsString()));
+        String asuinKunta = $ben.getAsuntoTiedot().getAsuinKunta();
+        insert(new MaximumHousingCostRequest($ben.getKuntaRyhma(), $ben.getRuokakunnanKoko(), asuinKunta, $ben.getAlkuPvm()));
 end
 
-rule "Talleta maksimiasumiskulut"
+rule "Store maximum housing costs"
     when
         $hit: MaximumHousingCost($maximum: cost)
         $result: ApplicationResult()
+        MaximumHousingCostRequest($county: county, $group: kalleusRyhma, $houseHoldSize: ruokakunnanKoko)
     then
-        debug("osuma! " + $hit);
+        debug(drools.getRule().getName() + " hit:" + $hit);
+        insert(new DecisionElement("household.groupmax", $county, $group,  $houseHoldSize, $maximum));
         $result.setEnimmaisAsumisMenotEur($maximum);
-        delete($hit);
 end
 
-rule "Luo asunto"
+rule "Create rent apartment"
     when
-        $ben: BenefitApplication(ruokakunnanKoko > 0, $asunto: asuntoTiedot)
+        $ben: BenefitApplication(ruokakunnanKoko > 0, $asunto: asuntoTiedot, asuntoTiedot.isVuokraa() == true)
         not AsuntoMarker()
     then
         debug(drools.getRule().getName());
-        // TODO ugly if, get rid of me
         insert($asunto);
-        if ($asunto.isVuokraa()){
-            insert(new VuokraMarker());
-        }
+        insert(new RentMarker());
 end
 
-rule "Vuokran lisays"
+rule "Create other apartment"
     when
-        $marker:VuokraMarker(!vuokra)
-        $result: ApplicationResult(vuokraMeno.compareTo(BigDecimal.ZERO) == 0)
+        $ben: BenefitApplication(ruokakunnanKoko > 0, $asunto: asuntoTiedot, asuntoTiedot.isMuuOmistus() == true)
+        not AsuntoMarker()
+    then
+        debug(drools.getRule().getName());
+        insert($asunto);
+        insert(new OtherOwnedMarker());
+end
+
+rule "Create owned apartment"
+    when
+        $ben: BenefitApplication(ruokakunnanKoko > 0, $asunto: asuntoTiedot, asuntoTiedot.isOmistusOsake() == true)
+        not AsuntoMarker()
+    then
+        debug(drools.getRule().getName());
+        insert($asunto);
+        insert(new OwnedMarker());
+end
+
+rule "Add other costs"
+    //Muun omistusasunnon hoitomenoiksi hyväksytään:
+    //Ruokakunnan koko henkeä 	Huomioon otettava hoitomeno €/kk
+    //1 	89
+    //2 	107
+    //3 	135
+    //4 	159
+    //Jos ruokakuntaan kuuluu enemmän kuin neljä henkilöä, muun omistusasunnon hoitomenoja korotetaan 49 euroa jokaista neljä henkilöä ylittävää ruokakunnan jäsentä kohden.
+    when
+        $marker: OtherOwnedMarker(!otherCostsHandled)
+        $result: ApplicationResult()
         $asunto: AsuntoTiedot()
-        $ben: BenefitApplication()
+        $per: BenefitApplication()
+    then
+        debug(drools.getRule().getName());
+        Double hoitoMenot;
+        int ruokakunnanJasenMaara = $per.getRuokakunnanJasenet().size();
+        switch (ruokakunnanJasenMaara){
+           case 1: hoitoMenot = 89d; break;
+           case 2: hoitoMenot = 107d; break;
+           case 3: hoitoMenot = 135d; break;
+           case 4: hoitoMenot = 159d; break;
+           default:
+              Double hoitoMeno4 = 159d;
+              Double hoitoMenoYli4 = 49d;
+              hoitoMenot = (Double) (hoitoMeno4 + ((ruokakunnanJasenMaara-4) * hoitoMenoYli4));
+              break;
+           }
+        $marker.setOtherCostsHandled(true);
+        $result.setHoitoMenoMuu(hoitoMenot);
+        insert(new DecisionElement("costs.other", hoitoMenot, ruokakunnanJasenMaara));
+end
+
+
+rule "Add rent"
+    when
+        $marker:RentMarker(!rentHandled)
+        $result: ApplicationResult(vuokraMeno == 0.0)
+        $asunto: AsuntoTiedot()
     then
         debug(drools.getRule().getName());
         $result.setVuokraMeno($asunto.getVuokraEur());
         insert(new DecisionElement("costs.rent", $asunto.getVuokraEur()));
-        $marker.setVuokra(true);
+        $marker.setRentHandled(true);
         $result.setVuokraMeno($asunto.getVuokraEur());
         update($result);
         update($marker);
 end
 
-rule "Alivuokralainen"
+rule "Handle subrenting"
     when
-        $marker:VuokraMarker(!alivuokra)
+        $marker:RentMarker(!subRentHandled)
         $asuntoTiedot: AsuntoTiedot($alivuokraTulo:alivuokralaisenMaksamaVuokraEur)
         $result: ApplicationResult()
     then
         debug(drools.getRule().getName());
-        $marker.setAlivuokra(true);
+        $marker.setSubRentHandled(true);
         update($marker);
         // TODO move to separate rule
-        if ($alivuokraTulo.compareTo(BigDecimal.ZERO) > 0) {
+        if ($alivuokraTulo > 0) {
             debug("alivuokratulo:" + $alivuokraTulo);
             $result.setAlivuokraTulo($alivuokraTulo);
             // todo is this needed        update($result);
@@ -175,23 +379,22 @@ rule "Internal handle decision element"
         delete($elem);
 end
 
-rule "Vuokra käsitelty"
+rule "Rent handled, complete"
     salience -10
     when
-        $marker: VuokraMarker(!finished, alivuokra, vuokra)
+        $marker: RentMarker(!finished, subRentHandled, rentHandled)
         $result: ApplicationResult()
         $app: BenefitApplication()
     then
         debug(drools.getRule().getName());
-        $app.setResult($result);
         $marker.setFinished(true);
         update($marker);
 end
 
-rule "Laske kaikki, vuokra-asunto, pitäisi olla viimeinen ja jotain on pielessä, jos tähän vielä osuu"
+rule "Catch all, something is wrong with the rent stuff"
     salience -100
     when
-        $marker: VuokraMarker(!finished)
+        $marker: RentMarker(!finished)
     then
         debug(drools.getRule().getName());
         $marker.setFinished(true);

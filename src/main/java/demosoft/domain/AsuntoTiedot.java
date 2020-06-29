@@ -1,6 +1,7 @@
 package demosoft.domain;
 
-import java.math.BigDecimal;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.util.Objects;
 
 import static demosoft.domain.AsunnonTyyppi.*;
@@ -9,12 +10,12 @@ public class AsuntoTiedot {
     private AsunnonTyyppi asunnonTyyppi;
     private String kuntaNumero;
     private String asuinKunta;
-    private BigDecimal vuokraEur = BigDecimal.ZERO;
-    private BigDecimal vastikeEur = BigDecimal.ZERO;
-    private BigDecimal rahoitusMenotEur = BigDecimal.ZERO;
-    private BigDecimal vesiPerHenkiloEur = BigDecimal.ZERO;
-    private BigDecimal lammitysKustannuksetEur = BigDecimal.ZERO;
-    private BigDecimal alivuokralaisenMaksamaVuokraEur = BigDecimal.ZERO;
+    private Double vuokraEur = 0d;
+    private Double vastikeEur = 0d;
+    private Double rahoitusMenotEur = 0d;
+    private Double vesiPerHenkiloEur = 0d;
+    private Double lammitysKustannuksetEur = 0d;
+    private Double alivuokralaisenMaksamaVuokraEur = 0d;
 
     @Override
     public String toString() {
@@ -76,51 +77,51 @@ public class AsuntoTiedot {
         this.asuinKunta = asuinKunta;
     }
 
-    public BigDecimal getVuokraEur() {
+    public Double getVuokraEur() {
         return vuokraEur;
     }
 
-    public void setVuokraEur(BigDecimal vuokraEur) {
+    public void setVuokraEur(Double vuokraEur) {
         this.vuokraEur = vuokraEur;
     }
 
-    public BigDecimal getVastikeEur() {
+    public Double getVastikeEur() {
         return vastikeEur;
     }
 
-    public void setVastikeEur(BigDecimal vastikeEur) {
+    public void setVastikeEur(Double vastikeEur) {
         this.vastikeEur = vastikeEur;
     }
 
-    public BigDecimal getRahoitusMenotEur() {
+    public Double getRahoitusMenotEur() {
         return rahoitusMenotEur;
     }
 
-    public void setRahoitusMenotEur(BigDecimal rahoitusMenotEur) {
+    public void setRahoitusMenotEur(Double rahoitusMenotEur) {
         this.rahoitusMenotEur = rahoitusMenotEur;
     }
 
-    public BigDecimal getVesiPerHenkiloEur() {
+    public Double getVesiPerHenkiloEur() {
         return vesiPerHenkiloEur;
     }
 
-    public void setVesiPerHenkiloEur(BigDecimal vesiPerHenkiloEur) {
+    public void setVesiPerHenkiloEur(Double vesiPerHenkiloEur) {
         this.vesiPerHenkiloEur = vesiPerHenkiloEur;
     }
 
-    public BigDecimal getLammitysKustannuksetEur() {
+    public Double getLammitysKustannuksetEur() {
         return lammitysKustannuksetEur;
     }
 
-    public void setLammitysKustannuksetEur(BigDecimal lammitysKustannuksetEur) {
+    public void setLammitysKustannuksetEur(Double lammitysKustannuksetEur) {
         this.lammitysKustannuksetEur = lammitysKustannuksetEur;
     }
 
-    public BigDecimal getAlivuokralaisenMaksamaVuokraEur() {
+    public Double getAlivuokralaisenMaksamaVuokraEur() {
         return alivuokralaisenMaksamaVuokraEur;
     }
 
-    public void setAlivuokralaisenMaksamaVuokraEur(BigDecimal alivuokralaisenMaksamaVuokraEur) {
+    public void setAlivuokralaisenMaksamaVuokraEur(Double alivuokralaisenMaksamaVuokraEur) {
         this.alivuokralaisenMaksamaVuokraEur = alivuokralaisenMaksamaVuokraEur;
     }
 
@@ -129,8 +130,10 @@ public class AsuntoTiedot {
      *
      * @return
      */
-    public BigDecimal getAcceptedRent() {
-        return vuokraEur.subtract(alivuokralaisenMaksamaVuokraEur).max(BigDecimal.ZERO);
+    @JsonIgnore
+    public Double getAcceptedRent() {
+        Double result = vuokraEur - alivuokralaisenMaksamaVuokraEur;
+        return java.lang.Math.max(result, 0d);
     }
 
     public AsuntoTiedot asunnonTyyppi(AsunnonTyyppi asunnonTyyppi) {
@@ -148,32 +151,32 @@ public class AsuntoTiedot {
         return this;
     }
 
-    public AsuntoTiedot vuokraEur(BigDecimal vuokraEur) {
+    public AsuntoTiedot vuokraEur(Double vuokraEur) {
         this.vuokraEur = vuokraEur;
         return this;
     }
 
-    public AsuntoTiedot vastikeEur(BigDecimal vastikeEur) {
+    public AsuntoTiedot vastikeEur(Double vastikeEur) {
         this.vastikeEur = vastikeEur;
         return this;
     }
 
-    public AsuntoTiedot rahoitusMenotEur(BigDecimal rahoitusMenotEur) {
+    public AsuntoTiedot rahoitusMenotEur(Double rahoitusMenotEur) {
         this.rahoitusMenotEur = rahoitusMenotEur;
         return this;
     }
 
-    public AsuntoTiedot vesiPerHenkiloEur(BigDecimal vesiPerHenkiloEur) {
+    public AsuntoTiedot vesiPerHenkiloEur(Double vesiPerHenkiloEur) {
         this.vesiPerHenkiloEur = vesiPerHenkiloEur;
         return this;
     }
 
-    public AsuntoTiedot lammitysKustannuksetEur(BigDecimal lammitysKustannuksetEur) {
+    public AsuntoTiedot lammitysKustannuksetEur(Double lammitysKustannuksetEur) {
         this.lammitysKustannuksetEur = lammitysKustannuksetEur;
         return this;
     }
 
-    public AsuntoTiedot alivuokralaisenMaksamaVuokraEur(BigDecimal alivuokralaisenMaksamaVuokraEur) {
+    public AsuntoTiedot alivuokralaisenMaksamaVuokraEur(Double alivuokralaisenMaksamaVuokraEur) {
         this.alivuokralaisenMaksamaVuokraEur = alivuokralaisenMaksamaVuokraEur;
         return this;
     }
@@ -183,7 +186,7 @@ public class AsuntoTiedot {
     }
 
     public boolean isVuokraa() {
-        return this.getVuokraEur().compareTo(BigDecimal.ZERO) > 0;
+        return this.getVuokraEur().compareTo(0d) > 0;
     }
 
     public boolean isOmistusOsake() {

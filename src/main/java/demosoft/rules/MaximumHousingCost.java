@@ -1,23 +1,20 @@
 package demosoft.rules;
 
-import java.math.BigDecimal;
-
 public class MaximumHousingCost {
-    private BigDecimal cost;
+    private Double cost;
 
-    public MaximumHousingCost(BigDecimal cost) {
+    public MaximumHousingCost(Integer cost) {
+        this.cost = Double.valueOf(cost);
+    }
+    public MaximumHousingCost(Double cost) {
         this.cost = cost;
     }
 
-    public MaximumHousingCost(double cost) {
-        this.cost = BigDecimal.valueOf(cost);
-    }
-
-    public BigDecimal getCost() {
+    public Double getCost() {
         return cost;
     }
 
-    public void setCost(BigDecimal cost) {
+    public void setCost(Double cost) {
         this.cost = cost;
     }
 

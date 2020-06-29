@@ -1,12 +1,13 @@
 package demosoft.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import demosoft.domain.decision.DecisionElement;
 
-import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class BenefitApplication extends PerusteTiedot {
     private int kuntaRyhma;
@@ -16,8 +17,17 @@ public class BenefitApplication extends PerusteTiedot {
     private boolean alivuokralainen = false;
     private List<RuokakunnanJasen> ruokakunnanJasenet = new ArrayList<>();
     private List<DecisionElement> decisionElements = new ArrayList<>();
-
+    private List<String> localizedDecisions;
+    private Language language = Language.EN;
     private ApplicationResult result;
+
+    public Language getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(Language language) {
+        this.language = language;
+    }
 
     public ApplicationResult getResult() {
         return result;
@@ -54,6 +64,17 @@ public class BenefitApplication extends PerusteTiedot {
     @Override
     public int hashCode() {
         return Objects.hash(kuntaRyhma, asuinMaakunta, ruokakunnanKoko, asuntoTiedot, alivuokralainen);
+    }
+
+    /**
+     * Helper method
+     */
+    @JsonIgnore
+    public String getJasenetAsString() {
+        return this.ruokakunnanJasenet
+                .stream()
+                .map(j -> j.getEtuNimi() + " " + j.getSukuNimi())
+                .collect(Collectors.joining(","));
     }
 
     public int getKuntaRyhma() {
@@ -104,30 +125,49 @@ public class BenefitApplication extends PerusteTiedot {
         this.ruokakunnanJasenet = ruokakunnanJasenet;
     }
 
+    @Override
+    public String toString() {
+        return "BenefitApplication{" +
+                ", ruokakunnanKoko=" + ruokakunnanKoko +
+                ", decisionElements=" + decisionElements +
+                '}';
+    }
+
+    public List<String> getLocalizedDecisions() {
+        return localizedDecisions;
+    }
+
+    public void setLocalizedDecisions(List<String> localizedDecisions) {
+        this.localizedDecisions = localizedDecisions;
+    }
+
     public static class BenefitApplicationBuilder {
 
         private int kuntaRyhma;
         private String asuinMaakunta;
         private AsuntoTiedot asuntoTiedot;
-        private boolean alivuokralainen;
-        //private boolean lisatilanTarveHuomioitu;
         private int ruokakunnanKoko;
         private List<RuokakunnanJasen> ruokakunnanJasenet = new ArrayList<>();
         private List<DecisionElement> decisionElements = new ArrayList<>();
-        private Date alkuPvm;
+        private LocalDate alkuPvm;
+        private Language language = Language.EN;
 
         public BenefitApplication build() {
             BenefitApplication result = new BenefitApplication();
             result.setKuntaRyhma(kuntaRyhma);
             result.setAsuinMaakunta(asuinMaakunta);
             result.setAsuntoTiedot(asuntoTiedot);
-            result.setAlivuokralainen(alivuokralainen);
-            //result.setLisatilanTarveHuomioitu(lisatilanTarveHuomioitu);
             result.setRuokakunnanKoko(ruokakunnanKoko);
             result.setRuokakunnanJasenet(ruokakunnanJasenet);
             result.setDecisionElements(decisionElements);
             result.setAlkuPvm(alkuPvm);
+            result.setLanguage(language);
             return result;
+        }
+
+        public BenefitApplicationBuilder language(Language language) {
+            this.language = language;
+            return this;
         }
 
         public BenefitApplicationBuilder kuntaRyhma(int kuntaRyhma) {
@@ -142,11 +182,6 @@ public class BenefitApplication extends PerusteTiedot {
 
         public BenefitApplicationBuilder addAsuntoTiedot(AsuntoTiedot asuntoTiedot) {
             this.asuntoTiedot = asuntoTiedot;
-            return this;
-        }
-
-        public BenefitApplicationBuilder alivuokralainen(boolean alivuokralainen) {
-            this.alivuokralainen = alivuokralainen;
             return this;
         }
 
@@ -170,17 +205,9 @@ public class BenefitApplication extends PerusteTiedot {
             return this;
         }
 
-        public BenefitApplicationBuilder alkuPvm(Date date) {
-            this.alkuPvm = date;
+        public BenefitApplicationBuilder alkuPvm(LocalDate localDate) {
+            this.alkuPvm = localDate;
             return this;
         }
-    }
-
-    @Override
-    public String toString() {
-        return "BenefitApplication{" +
-                ", ruokakunnanKoko=" + ruokakunnanKoko +
-                ", decisionElements=" + decisionElements +
-                '}';
     }
 }
