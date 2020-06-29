@@ -1,0 +1,199 @@
+package demosoft.rules;
+dialect  "java"
+
+import demosoft.domain.*
+import demosoft.domain.decision.DecisionElement
+import java.math.BigDecimal
+
+declare Lisatilantarve
+  onko: boolean
+end
+
+declare VesiMaksu
+    totalCost: java.math.BigDecimal
+    perHlo: java.math.BigDecimal
+end
+
+declare LammitysMaksu
+    totalCost: java.math.BigDecimal
+    perHlo: java.math.BigDecimal
+end
+
+declare AsuntoMarker
+    finished: boolean
+end
+
+declare VuokraMarker extends AsuntoMarker
+   alivuokra: boolean
+   vuokra: boolean
+end
+
+function void debug(String message) {
+    System.out.println("message = " + message);
+}
+
+rule "Start"
+    when
+        $dec: BenefitApplication(ruokakunnanKoko > 0, $alkuPvm : alkuPvm)
+        not VesiMaksu()
+        not LammitysMaksu()
+    then
+        debug(drools.getRule().getName() + " fired");
+        debug($dec.toString());
+        insert(new VesiMaksu());
+        insert(new LammitysMaksu());
+        insert(new MaximumWaterPriceRequest($alkuPvm));
+        insert(new ApplicationResult());
+        update($dec);
+end
+
+rule "Vesimaksun laskenta"
+    no-loop true
+    when
+        $dec: BenefitApplication($koko: ruokakunnanKoko > 0, $asuntoTiedot: asuntoTiedot)
+        $maksut: VesiMaksu()
+        $maxWater: MaximumWaterPrice()
+    then
+        debug("max water price:" + $maxWater);
+        // todo ota suoraan asuntotiedot?
+        BigDecimal perHenki = $maxWater.getMaximum().min($asuntoTiedot.getVesiPerHenkiloEur());
+        $maksut.setTotalCost(perHenki.multiply(new BigDecimal($koko)));
+        $maksut.setPerHlo(perHenki);
+        update($maksut);
+end
+
+rule "Lisaa vesimaksut"
+    when
+        $maksut: VesiMaksu(totalCost != null)
+        $result: ApplicationResult()
+    then
+        debug(drools.getRule().getName());
+        insert(new DecisionElement("vesimaksut", $maksut.getPerHlo(), $maksut.getTotalCost()));
+        $result.setVesiMeno($maksut.getTotalCost());
+        delete($maksut);
+end
+
+rule "Laske ruokakunnan koko"
+    when
+       not Lisatilantarve()
+       $ben: BenefitApplication(ruokakunnanKoko == 0)
+       $lisatilaisia: Number() from accumulate ( RuokakunnanJasen(lisatilanTarve) from $ben.ruokakunnanJasenet, count())
+    then
+        debug("Montako lisatilantarpeista:" + $lisatilaisia);
+        insert(new Lisatilantarve($lisatilaisia > 0));
+end
+
+rule "Laske ruokakunnan koko, on lisatilan tarve"
+    when
+       $ben: BenefitApplication(ruokakunnanKoko == 0)
+       Lisatilantarve(onko)
+    then
+        debug("on lisatilan tarve!");
+        $ben.setRuokakunnanKoko($ben.getRuokakunnanJasenet().size() + 1);
+        update($ben);
+        insert(new DecisionElement("lisatila", $ben.getRuokakunnanJasenet().size() + 1));
+        insert(new DecisionElement("ruokakunnan.laskennallinen.koko", $ben.getRuokakunnanKoko()));
+        insert(new MaximumHousingCostRequest($ben.getKuntaRyhma(), $ben.getRuokakunnanKoko(), $ben.getAlkuPvm()));
+end
+
+rule "Laske ruokakunnan koko, ei lisatilantarvetta"
+    when
+       $ben: BenefitApplication(ruokakunnanKoko == 0)
+       Lisatilantarve(onko == false)
+    then
+        debug("ei ole lisatilan tarvetta");
+        $ben.setRuokakunnanKoko($ben.getRuokakunnanJasenet().size());
+        update($ben);
+        insert(new DecisionElement("ruokakunnan.laskennallinen.koko", $ben.getRuokakunnanKoko()));
+        insert(new MaximumHousingCostRequest($ben.getKuntaRyhma(), $ben.getRuokakunnanKoko(), $ben.getAlkuPvm()));
+end
+
+rule "Talleta maksimiasumiskulut"
+    when
+        $hit: MaximumHousingCost($maximum: cost)
+        $result: ApplicationResult()
+    then
+        debug("osuma! " + $hit);
+        $result.setEnimmaisAsumisMenotEur($maximum);
+        delete($hit);
+end
+
+rule "Luo asunto"
+    when
+        $ben: BenefitApplication(ruokakunnanKoko > 0, $asunto: asuntoTiedot)
+        not AsuntoMarker()
+    then
+        debug(drools.getRule().getName());
+        // TODO ugly if, get rid of me
+        insert($asunto);
+        if ($asunto.isVuokraa()){
+            insert(new VuokraMarker());
+        }
+end
+
+rule "Vuokran lisays"
+    when
+        $marker:VuokraMarker(!vuokra)
+        $result: ApplicationResult(vuokraMeno.compareTo(BigDecimal.ZERO) == 0)
+        $asunto: AsuntoTiedot()
+        $ben: BenefitApplication()
+    then
+        debug(drools.getRule().getName());
+        $result.setVuokraMeno($asunto.getVuokraEur());
+        insert(new DecisionElement("costs.rent", $asunto.getVuokraEur()));
+        $marker.setVuokra(true);
+        $result.setVuokraMeno($asunto.getVuokraEur());
+        update($result);
+        update($marker);
+end
+
+rule "Alivuokralainen"
+    when
+        $marker:VuokraMarker(!alivuokra)
+        $asuntoTiedot: AsuntoTiedot($alivuokraTulo:alivuokralaisenMaksamaVuokraEur)
+        $result: ApplicationResult()
+    then
+        debug(drools.getRule().getName());
+        $marker.setAlivuokra(true);
+        update($marker);
+        // TODO move to separate rule
+        if ($alivuokraTulo.compareTo(BigDecimal.ZERO) > 0) {
+            debug("alivuokratulo:" + $alivuokraTulo);
+            $result.setAlivuokraTulo($alivuokraTulo);
+            // todo is this needed        update($result);
+            insert(new DecisionElement("subrent", $asuntoTiedot.getAlivuokralaisenMaksamaVuokraEur(), $asuntoTiedot.getVuokraEur(),  $asuntoTiedot.getAcceptedRent()));
+        }
+end
+
+rule "Internal handle decision element"
+    when
+        $elem: DecisionElement()
+        $ben: BenefitApplication()
+    then
+        debug(drools.getRule().getName() + " adding DE:" + $elem);
+        $ben.addDecisionElement($elem);
+        delete($elem);
+end
+
+rule "Vuokra käsitelty"
+    salience -10
+    when
+        $marker: VuokraMarker(!finished, alivuokra, vuokra)
+        $result: ApplicationResult()
+        $app: BenefitApplication()
+    then
+        debug(drools.getRule().getName());
+        $app.setResult($result);
+        $marker.setFinished(true);
+        update($marker);
+end
+
+rule "Laske kaikki, vuokra-asunto, pitäisi olla viimeinen ja jotain on pielessä, jos tähän vielä osuu"
+    salience -100
+    when
+        $marker: VuokraMarker(!finished)
+    then
+        debug(drools.getRule().getName());
+        $marker.setFinished(true);
+        update($marker);
+end
