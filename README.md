@@ -46,14 +46,54 @@ You can create a native executable using: `mvn package -Pnative`.
 
 Or, if you don't have GraalVM installed, you can run the native executable build in a container using: `mvn package -Pnative -Dquarkus.native.container-build=true`.
 
-You can then execute your native executable with: `./target/benefitapp-1.0-SNAPSHOT-runner`
+You can then execute your native executable with: `./target/benefitapp-1.0-SNAPSHOT-runner -Dquarkus.http.host=127.0.0.1`
 
 If you want to learn more about building native executables, please consult https://quarkus.io/guides/building-native-image.
 
-## TODO Deployment to OpenShift 
+##  Deployment to OpenShift 
+Login to OpenShift
+
+Create a new project
+```
+oc new-project benefitapplication
+```
+
+Create a build
+
+```
+oc new-build --name=benefit java:11 --binary=true
+```
+
+Start the build
+
+```
+oc start-build benefit --from-dir target --follow
+```
+
+
+After build has been finished, create an application using it:
+
+```
+oc new-app benefit -e JAVA_OPTIONS=-Dquarkus.http.host=0.0.0.0 -e JAVA_APP_JAR=benefitapp-1.0-SNAPSHOT-runner.jar
+```
+
+Expose the route
+
+```
+oc expose svc/benefit
+```
+
+Try it out
+```
+bin/ocp-send-1.sh
+```
 
 ## Known issues
 
 ### Message bundles with native compilation
 
 Example project demonstrating this https://github.com/tfriman/quarkus-native-resourcebundle This issue is possibly related to this https://github.com/oracle/graal/issues/911
+
+### Debug print statements in DRL
+
+These are not along the best practises but they make it easy to demonstrate quarkus:dev mode when you just change the debug function in DRL file.
