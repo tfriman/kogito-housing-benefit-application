@@ -21,6 +21,9 @@ In the first process step "Apply Rules" rules from [benefits.drl](src/main/resou
 After that step localization using resource bundles is done and then there is a manual acceptance step in the process. 
 
 ![Process description](docs/images/application-bpmn2.png "BPMN 2.0 model")
+
+Note: you can edit the process diagram using VS Code extension called 'Kogito Bundle'
+
 ## Running the application in dev mode
 
 You can run your application in dev mode that enables live coding using:
@@ -69,7 +72,6 @@ Start the build
 ```
 oc start-build benefit --from-dir target --follow
 ```
-
 
 After build has been finished, create an application using it:
 
