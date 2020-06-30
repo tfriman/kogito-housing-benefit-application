@@ -1,15 +1,36 @@
-# benefitapp project
+# Housing Benefit Calculation using Kogito
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Showcases housing benefit calculation using Kogita BPMN and Rule Engine.
 
-If you want to learn more about Quarkus, please visit its website: https://quarkus.io/ .
+Idea taken from https://github.com/rikusarlin/DroolsHousingBenefit
 
+## Changes made to https://github.com/rikusarlin/DroolsHousingBenefit
+
+- BigDecimals replaced with doubles (makes DRL selectors easier, for example ```Foo(amount > 0)```)
+- No rule groups used
+- As much as possible done using DRL, so POJOs have no rule logic.
+
+## Swagger UI
+
+http://localhost:8080/swagger-ui
+
+### Process description
+
+Process is a very simple one. POJO [BenefitApplication.java](src/main/java/demosoft/domain/BenefitApplication.java) is gotten in via REST API.
+In the first process step "Apply Rules" rules from [benefits.drl](src/main/resources/demosoft/rules/benefits.drl) and [Excel sheet](src/main/resources/demosoft/rules/max_costs.xlsx) are run.
+After that step localization using resource bundles is done and then there is a manual acceptance step in the process. 
+
+![Process description](docs/images/application-bpmn2.png "BPMN 2.0 model")
 ## Running the application in dev mode
 
 You can run your application in dev mode that enables live coding using:
 ```
 mvn quarkus:dev
 ```
+
+## Testing application
+
+See `bin` directory.
 
 ## Packaging and running the application
 
